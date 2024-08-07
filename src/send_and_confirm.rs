@@ -45,10 +45,9 @@ impl Miner {
         let progress_bar = spinner::new_progress_bar();
         let signer = self.signer();
         let client = self.rpc_client.clone();
-        let fee_payer = self.fee_payer();
 
         // Return error, if balance is zero
-        if let Ok(balance) = client.get_balance(&fee_payer.pubkey()).await {
+        if let Ok(balance) = client.get_balance(&signer.pubkey()).await {
             if balance <= sol_to_lamports(MIN_SOL_BALANCE) {
                 panic!(
                     "{} Insufficient balance: {} SOL\nPlease top up with at least {} SOL",
@@ -83,20 +82,14 @@ impl Miner {
             max_retries: Some(RPC_RETRIES),
             min_context_slot: None,
         };
-        let mut tx = Transaction::new_with_payer(&final_ixs, Some(&fee_payer.pubkey()));
+        let mut tx = Transaction::new_with_payer(&final_ixs, Some(&signer.pubkey()));
 
         // Sign tx
         let (hash, _slot) = client
             .get_latest_blockhash_with_commitment(self.rpc_client.commitment())
             .await
             .unwrap();
-
-        
-        if signer.pubkey() == fee_payer.pubkey() {
-            tx.sign(&[&signer], hash);
-        } else {
-            tx.sign(&[&signer, &fee_payer], hash);
-        }
+        tx.sign(&[&signer], hash);
 
         // Submit tx
         let mut attempts = 0;
